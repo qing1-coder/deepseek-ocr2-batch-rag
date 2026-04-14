@@ -1,0 +1,49 @@
+model:
+  model_path: "deepseek-ai/DeepSeek-OCR-2" # local model path
+  prompt: "<image>\n<|grounding|>Convert the document to markdown."
+
+runtime:
+  backend: "vllm"
+  preset: "balanced" # balanced | official_like
+
+gpu:
+  auto_detect: true
+  device_ids: [0]
+  max_workers_per_gpu: 1
+
+input:
+  path: "./inputs"
+
+output:
+  root: "./outputs"
+  save_images: true
+  save_det_markdown: true
+  save_layout_pdf: false
+
+resume:
+  enabled: true
+  require_det_markdown: false
+  require_layout_pdf: false
+  require_images_dir: false
+  min_markdown_bytes: 16
+
+pdf:
+  dpi: 144
+
+vllm:
+  max_model_len: 8192
+  max_num_seqs: 48
+  gpu_memory_utilization: 0.9
+  block_size: 256
+  swap_space: 0
+  enforce_eager: false
+  disable_mm_preprocessor_cache: true
+  trust_remote_code: true
+
+postprocess:
+  skip_repeat: true
+  include_page_split: false
+
+preprocess:
+  crop_mode: true
+  num_workers: 24
