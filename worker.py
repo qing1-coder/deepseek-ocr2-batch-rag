@@ -19,10 +19,22 @@ def worker_entry(
 ) -> None:
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     os.environ["VLLM_USE_V1"] = "0"
+    os.environ["DS_OCR2_MODEL_PATH"] = str(config["model"]["model_path"])
+    os.environ["DS_OCR2_PROMPT"] = str(config["model"]["prompt"])
+    os.environ["DS_OCR2_CROP_MODE"] = str(bool(config["preprocess"]["crop_mode"])).lower()
 
-    from deepseek_ocr2 import DeepseekOCR2ForCausalLM  # type: ignore
-    from process.ngram_norepeat import NoRepeatNGramLogitsProcessor  # type: ignore
-    from process.image_process import DeepseekOCR2Processor  # type: ignore
+    try:
+        from vendor.deepseek_ocr2 import DeepseekOCR2ForCausalLM  # type: ignore
+    except ModuleNotFoundError as exc:
+        if getattr(exc, "name", "") == "deepencoderv2":
+            raise ModuleNotFoundError(
+                "Missing dependency module 'deepencoderv2'. "
+                "Please copy required DeepSeek-OCR2 encoder sources into project runtime path."
+            ) from exc
+        raise
+
+    from vendor.process.ngram_norepeat import NoRepeatNGramLogitsProcessor  # type: ignore
+    from vendor.process.image_process import DeepseekOCR2Processor  # type: ignore
     from vllm import LLM, SamplingParams
     from vllm.model_executor.models.registry import ModelRegistry
 

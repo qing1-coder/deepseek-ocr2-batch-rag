@@ -8,7 +8,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "model_path": "deepseek-ai/DeepSeek-OCR-2",
         "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
     },
-    "runtime": {"backend": "vllm", "preset": "balanced"},
+    "runtime": {"backend": "vllm"},
     "gpu": {
         "auto_detect": True,
         "device_ids": [],
@@ -31,7 +31,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "pdf": {"dpi": 144},
     "vllm": {
         "max_model_len": 8192,
-        "max_num_seqs": 16,
+        "max_num_seqs": 48,
         "gpu_memory_utilization": 0.9,
         "block_size": 256,
         "swap_space": 0,
@@ -40,22 +40,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "trust_remote_code": True,
     },
     "postprocess": {"skip_repeat": True, "include_page_split": True},
-    "preprocess": {"crop_mode": True, "num_workers": 16},
-}
-
-OFFICIAL_LIKE_PRESET: Dict[str, Any] = {
-    "vllm": {
-        "max_model_len": 8192,
-        "max_num_seqs": 100,
-        "gpu_memory_utilization": 0.9,
-        "block_size": 256,
-        "swap_space": 0,
-        "enforce_eager": False,
-        "disable_mm_preprocessor_cache": True,
-        "trust_remote_code": True,
-    },
-    "preprocess": {"crop_mode": True, "num_workers": 64},
-    "postprocess": {"skip_repeat": True, "include_page_split": True},
+    "preprocess": {"crop_mode": True, "num_workers": 24},
 }
 
 
@@ -105,11 +90,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
     else:
         raise ValueError("Only .yaml/.yml/.json config files are supported.")
 
-    base = dict(DEFAULT_CONFIG)
-    preset_name = str(user_config.get("runtime", {}).get("preset", "balanced")).strip().lower()
-    if preset_name == "official_like":
-        base = _deep_merge(base, OFFICIAL_LIKE_PRESET)
-    config = _deep_merge(base, user_config)
+    config = _deep_merge(dict(DEFAULT_CONFIG), user_config)
     _validate_config(config)
     return config
 
@@ -117,10 +98,6 @@ def load_config(config_path: str) -> Dict[str, Any]:
 def _validate_config(config: Dict[str, Any]) -> None:
     if config["runtime"]["backend"] != "vllm":
         raise ValueError("Only runtime.backend='vllm' is supported in this project.")
-    preset = str(config["runtime"].get("preset", "balanced")).strip().lower()
-    if preset not in {"balanced", "official_like"}:
-        raise ValueError("runtime.preset must be one of: balanced, official_like.")
-
     input_path = str(config["input"]["path"]).strip()
     if not input_path:
         raise ValueError("input.path is required.")

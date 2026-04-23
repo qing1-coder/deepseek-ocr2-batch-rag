@@ -1,21 +1,20 @@
 model:
-  model_path: "deepseek-ai/DeepSeek-OCR-2" # local model path
+  model_path: "/opt/data/private/mdq/deepseek-ocr-model2" # local model path
   prompt: "<image>\n<|grounding|>Convert the document to markdown."
 
 runtime:
   backend: "vllm"
-  preset: "balanced" # balanced | official_like
 
 gpu:
   auto_detect: true
-  device_ids: [0]
+  device_ids: [2,3]
   max_workers_per_gpu: 1
 
 input:
-  path: "./inputs"
+  path: "/opt/data/private/mdq/data_integration_v1/bscm_relative_mini_batch/"
 
 output:
-  root: "./outputs"
+  root: "/opt/data/private/mdq/data_integration_v1/bscm_relative_mini_batch_outputs"
   save_images: true
   save_det_markdown: true
   save_layout_pdf: false

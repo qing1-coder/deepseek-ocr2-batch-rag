@@ -11,8 +11,12 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Maintainers" }]
 dependencies = [
+  "torch",
   "vllm",
   "transformers",
+  "einops",
+  "addict",
+  "torchvision",
   "PyMuPDF",
   "img2pdf",
   "numpy",
@@ -29,3 +33,4 @@ deepseek-ocr2-batch-rag = "main:main"
 
 [tool.setuptools]
 py-modules = ["main", "config_loader", "gpu_manager", "pathing", "pipeline", "scanner", "worker"]
+packages = ["vendor", "vendor.process", "deepencoderv2"]

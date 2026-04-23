@@ -10,7 +10,6 @@ from config_loader import load_config, normalize_paths
 from gpu_manager import assign_tasks_to_slots, build_gpu_slots, resolve_gpu_ids
 from pathing import build_output_paths
 from scanner import collect_pdf_files
-from worker import worker_entry
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -54,6 +53,10 @@ def _is_already_processed(pdf_path: Path, input_root: Path, output_root: Path, r
 
 
 def run(config_path: str) -> None:
+    # Lazy import avoids requiring heavy runtime deps for simple CLI actions
+    # such as `python main.py --help`.
+    from worker import worker_entry
+
     workspace_root = Path(__file__).resolve().parent
     config = normalize_paths(load_config(config_path), workspace_root=workspace_root)
 
