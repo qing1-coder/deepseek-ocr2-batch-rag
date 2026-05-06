@@ -23,28 +23,65 @@ def worker_entry(
     os.environ["DS_OCR2_PROMPT"] = str(config["model"]["prompt"])
     os.environ["DS_OCR2_CROP_MODE"] = str(bool(config["preprocess"]["crop_mode"])).lower()
 
-    try:
-        from vendor.deepseek_ocr2 import DeepseekOCR2ForCausalLM  # type: ignore
-    except ModuleNotFoundError as exc:
-        if getattr(exc, "name", "") == "deepencoderv2":
-            raise ModuleNotFoundError(
-                "Missing dependency module 'deepencoderv2'. "
-                "Please copy required DeepSeek-OCR2 encoder sources into project runtime path."
-            ) from exc
-        raise
+    architecture = str(config["model"].get("architecture", "v2")).lower()
+    os.environ["DS_OCR2_MODEL_VERSION"] = architecture
+    if config["model"].get("base_size") is not None:
+        os.environ["DS_OCR2_BASE_SIZE"] = str(int(config["model"]["base_size"]))
+    if config["model"].get("image_size") is not None:
+        os.environ["DS_OCR2_IMAGE_SIZE"] = str(int(config["model"]["image_size"]))
 
-    from vendor.process.ngram_norepeat import NoRepeatNGramLogitsProcessor  # type: ignore
-    from vendor.process.image_process import DeepseekOCR2Processor  # type: ignore
+    if architecture == "v1":
+        try:
+            from vendor.deepseek_ocr import DeepseekOCRForCausalLM  # type: ignore
+        except ModuleNotFoundError as exc:
+            if getattr(exc, "name", "") == "deepencoder":
+                raise ModuleNotFoundError(
+                    "Missing dependency module 'deepencoder'. "
+                    "Please copy required DeepSeek-OCR (model1) encoder sources "
+                    "into the project runtime path."
+                ) from exc
+            raise
+
+        from vendor.process.ngram_norepeat import NoRepeatNGramLogitsProcessor  # type: ignore
+        from vendor.process.image_process_v1 import DeepseekOCRProcessor  # type: ignore
+
+        model_class = DeepseekOCRForCausalLM
+        model_arch_name = "DeepseekOCRForCausalLM"
+        processor_class = DeepseekOCRProcessor
+    elif architecture == "v2":
+        try:
+            from vendor.deepseek_ocr2 import DeepseekOCR2ForCausalLM  # type: ignore
+        except ModuleNotFoundError as exc:
+            if getattr(exc, "name", "") == "deepencoderv2":
+                raise ModuleNotFoundError(
+                    "Missing dependency module 'deepencoderv2'. "
+                    "Please copy required DeepSeek-OCR2 encoder sources into project runtime path."
+                ) from exc
+            raise
+
+        from vendor.process.ngram_norepeat import NoRepeatNGramLogitsProcessor  # type: ignore
+        from vendor.process.image_process import DeepseekOCR2Processor  # type: ignore
+
+        model_class = DeepseekOCR2ForCausalLM
+        model_arch_name = "DeepseekOCR2ForCausalLM"
+        processor_class = DeepseekOCR2Processor
+    else:
+        raise ValueError(
+            f"Unsupported model.architecture: {architecture!r}. "
+            "Allowed values are 'v1' (DeepSeek-OCR / model1) or "
+            "'v2' (DeepSeek-OCR2 / model2)."
+        )
+
     from vllm import LLM, SamplingParams
     from vllm.model_executor.models.registry import ModelRegistry
 
     # Preload tokenizer to ensure model assets are available before worker inference starts.
     _ = AutoTokenizer.from_pretrained(config["model"]["model_path"], trust_remote_code=True)
 
-    ModelRegistry.register_model("DeepseekOCR2ForCausalLM", DeepseekOCR2ForCausalLM)
+    ModelRegistry.register_model(model_arch_name, model_class)
     llm = LLM(
         model=config["model"]["model_path"],
-        hf_overrides={"architectures": ["DeepseekOCR2ForCausalLM"]},
+        hf_overrides={"architectures": [model_arch_name]},
         block_size=int(config["vllm"]["block_size"]),
         enforce_eager=bool(config["vllm"]["enforce_eager"]),
         trust_remote_code=bool(config["vllm"]["trust_remote_code"]),
@@ -71,7 +108,7 @@ def worker_entry(
         include_stop_str_in_output=True,
     )
 
-    processor = DeepseekOCR2Processor()
+    processor = processor_class()
     input_root_path = Path(input_root).resolve()
     output_root_path = Path(output_root).resolve()
     failures = []

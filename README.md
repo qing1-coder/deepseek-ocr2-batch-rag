@@ -1,27 +1,33 @@
 # deepseek-ocr2-batch-rag
 
-An independent, non-invasive batch extension for DeepSeek-OCR2 focused on RAG data preprocessing.
+An independent, non-invasive batch extension for DeepSeek-OCR / DeepSeek-OCR2 focused on RAG data preprocessing.
 
 This project converts PDFs into Markdown (with optional extracted image assets and layout previews) using only this repository's workflow code.
 
+It supports both official generations of the model:
+
+- `model.architecture: "v1"` → DeepSeek-OCR (model1, SAM + CLIP-L vision encoder)
+- `model.architecture: "v2"` → DeepSeek-OCR2 (model2, SAM + Qwen2 decoder used as encoder)
+
 ## Positioning
 
-- Non-invasive extension based on DeepSeek-OCR2 (not an official DeepSeek release).
+- Non-invasive extension based on DeepSeek-OCR / DeepSeek-OCR2 (not an official DeepSeek release).
 - Built for RAG preprocessing pipelines: `PDF -> Markdown (+ optional assets)`.
 - Supports recursive PDF discovery and mirrored output directory structure.
 - Supports multi-GPU data parallel processing (one worker process per GPU slot).
 - Supports resume mode to skip already processed files.
 
-## Relationship with DeepSeek-OCR2
+## Relationship with DeepSeek-OCR / DeepSeek-OCR2
 
-This repository does not ship official DeepSeek-OCR2 source code.
+This repository does not ship official DeepSeek-OCR / DeepSeek-OCR2 source code as a runtime dependency.
 You only need to prepare the OCR model weights (for example from HuggingFace or ModelScope).
-No local clone/path of the official DeepSeek-OCR2 repository is required.
+No local clone/path of the official DeepSeek-OCR repository is required at runtime.
 
 References:
 
-- DeepSeek-OCR2: [https://github.com/deepseek-ai/DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR)
-- Model: [https://huggingface.co/deepseek-ai/DeepSeek-OCR-2](https://huggingface.co/deepseek-ai/DeepSeek-OCR-2)
+- DeepSeek-OCR / DeepSeek-OCR2: [https://github.com/deepseek-ai/DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR)
+- Model1: [https://huggingface.co/deepseek-ai/DeepSeek-OCR](https://huggingface.co/deepseek-ai/DeepSeek-OCR)
+- Model2: [https://huggingface.co/deepseek-ai/DeepSeek-OCR-2](https://huggingface.co/deepseek-ai/DeepSeek-OCR-2)
 
 ## Install
 
@@ -46,6 +52,7 @@ python main.py --config config.yaml
 ## Minimal Config Keys
 
 - `model.model_path`
+- `model.architecture` — `"v1"` (DeepSeek-OCR / model1) or `"v2"` (DeepSeek-OCR2 / model2)
 - `input.path`
 - `output.root`
 
@@ -63,4 +70,4 @@ This project is licensed under MIT. See `LICENSE`.
 
 ## Disclaimer
 
-This project is an extension for DeepSeek-OCR2, not an official DeepSeek release.
+This project is an extension for DeepSeek-OCR / DeepSeek-OCR2, not an official DeepSeek release.

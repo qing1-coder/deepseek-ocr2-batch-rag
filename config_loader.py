@@ -7,6 +7,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "model": {
         "model_path": "deepseek-ai/DeepSeek-OCR-2",
         "prompt": "<image>\n<|grounding|>Convert the document to markdown.",
+        # Which official DeepSeek-OCR generation to adapt to:
+        #   "v1" -> DeepSeek-OCR (model1, SAM + CLIP-L vision)
+        #   "v2" -> DeepSeek-OCR2 (model2, SAM + Qwen2 decoder vision)
+        "architecture": "v2",
+        # Optional tile-size overrides. When None, defaults follow architecture
+        # (v1: 1024/640, v2: 1024/768).
+        "base_size": None,
+        "image_size": None,
     },
     "runtime": {"backend": "vllm"},
     "gpu": {
@@ -111,6 +119,28 @@ def _validate_config(config: Dict[str, Any]) -> None:
         raise ValueError("model.prompt must include exactly one <image> token.")
     if prompt.count("<image>") != 1:
         raise ValueError("model.prompt must contain only one <image> token.")
+
+    architecture = str(config["model"].get("architecture", "v2")).lower()
+    if architecture not in ("v1", "v2"):
+        raise ValueError(
+            "model.architecture must be one of: 'v1' (DeepSeek-OCR / model1) "
+            "or 'v2' (DeepSeek-OCR2 / model2)."
+        )
+    config["model"]["architecture"] = architecture
+
+    for size_key in ("base_size", "image_size"):
+        size_value = config["model"].get(size_key)
+        if size_value is None:
+            continue
+        try:
+            size_int = int(size_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"model.{size_key} must be a positive integer or null."
+            ) from exc
+        if size_int <= 0:
+            raise ValueError(f"model.{size_key} must be a positive integer.")
+        config["model"][size_key] = size_int
 
     device_ids = config["gpu"]["device_ids"]
     if not isinstance(device_ids, list):

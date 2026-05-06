@@ -1,48 +1,96 @@
+# =============================================================================
+# DeepSeek-OCR 批处理示例配置（复制为 config.yaml 后按需修改）
+# 同时支持官方 DeepSeek-OCR (model1) 与 DeepSeek-OCR2 (model2)
+# =============================================================================
+
 model:
-  model_path: "/opt/data/private/mdq/deepseek-ocr-model2" # local model path
+  # 模型权重目录或 HuggingFace 模型 ID（本地路径请指向含 config.json / 权重的目录）
+  # model1 例: "/opt/data/private/mdq/deepseek-ocr-model1"
+  # model2 例: "/opt/data/private/mdq/deepseek-ocr-model2"
+  model_path: "/opt/data/private/mdq/deepseek-ocr-model2"
+  # 选择适配的官方版本：
+  #   "v1" → DeepSeek-OCR (model1，SAM + CLIP-L 视觉编码器)
+  #   "v2" → DeepSeek-OCR2 (model2，SAM + Qwen2 解码器作为编码器)
+  # 必须与 model_path 指向的权重一致，否则加载会失败
+  architecture: "v2"
+  # 推理提示词。必须且只能包含一个 <image>，与每页一张图对应；可含 <|grounding|> 等官方特殊 token
   prompt: "<image>\n<|grounding|>Convert the document to markdown."
+  # 可选：覆盖切块基准尺寸 / 单块尺寸。留 null 时按 architecture 默认：
+  #   v1 默认 base_size=1024, image_size=640 (Gundam 预设)
+  #   v2 默认 base_size=1024, image_size=768
+  # 仅当你需要切换 Tiny/Small/Base/Large 等预设时再显式设置
+  base_size: null
+  image_size: null
 
 runtime:
+  # 推理后端；当前项目仅实现 vllm，其它值会在加载配置时报错
   backend: "vllm"
 
 gpu:
+  # true：在 device_ids 与机器实际 CUDA 设备交集中选用；若 device_ids 为空则用所有可见 GPU
+  # false：仅使用下面列出的 device_ids（需自行保证这些卡存在且可用）
   auto_detect: true
-  device_ids: [2,3]
+  # 要使用的 GPU 编号列表（逻辑编号，与 nvidia-smi 中序号一致；每个 worker 会单独绑定一张卡）
+  device_ids: [2]
+  # 每张 GPU 上并行起的 worker 进程数（一般 1 即可；增大可提高吞吐但会显著增加显存占用）
   max_workers_per_gpu: 1
 
 input:
+  # 单个 PDF 文件路径，或包含 PDF 的目录（会递归扫描子目录下的 .pdf）
   path: "/opt/data/private/mdq/data_integration_v1/bscm_relative_mini_batch/"
 
 output:
+  # 输出根目录；会镜像输入相对路径，每个 PDF 一个子目录（见 pathing 逻辑）
   root: "/opt/data/private/mdq/data_integration_v1/bscm_relative_mini_batch_outputs"
+  # 是否从检测框中裁剪并保存插图到每篇文档的 images/ 下，并在 Markdown 中插入 ![](images/...) 链接
   save_images: true
+  # 是否保存带 <|ref|>/<|det|> 等原始检测标记的中间 Markdown（*_det.mmd），便于调试版面
   save_det_markdown: true
+  # 是否把带框可视化后的各页拼成一份 PDF（*_layouts.pdf）；不需要预览可关以省时间
   save_layout_pdf: false
 
 resume:
+  # 是否在启动时跳过「已处理」的 PDF（根据输出目录里是否已有合格结果判断）
   enabled: true
+  # 断点续跑时，除主 .md 外是否还要求 *_det.mmd 必须已存在（true 更严，避免缺中间文件仍算完成）
   require_det_markdown: false
+  # 断点续跑时是否还要求 *_layouts.pdf 已存在（通常与 save_layout_pdf 联用）
   require_layout_pdf: false
+  # 断点续跑时是否还要求 images 目录存在且非空（与 save_images 联用）
   require_images_dir: false
+  # 主 Markdown 文件至少多少字节才视为「有效完成」，防止空文件被当成已处理（过小会重跑）
   min_markdown_bytes: 16
 
 pdf:
+  # 将 PDF 每页光栅化为位图时的 DPI；越大越清晰但越慢、越占显存。合法范围 >= 72（见 config_loader 校验）
   dpi: 144
 
 vllm:
+  # 模型上下文长度上限（token）；影响单次生成长度上限，需与显存和模型能力匹配
   max_model_len: 8192
+  # vLLM 同时批处理的最大序列数；增大可提高吞吐，显存不足时可调低
   max_num_seqs: 48
+  # 单卡上 vLLM 预留的 GPU 显存比例（0~1），过高可能 OOM，过低吞吐下降
   gpu_memory_utilization: 0.9
+  # KV cache 块大小；一般保持默认，除非 vLLM/驱动文档建议修改
   block_size: 256
+  # CPU 交换空间（GB），用于缓解显存压力；0 表示不用交换
   swap_space: 0
+  # true 时关闭 CUDA graph 等优化，便于调试或规避部分兼容问题，通常略慢
   enforce_eager: false
+  # 多模态预处理缓存；本项目建议 true，避免与当前 processor 行为不一致
   disable_mm_preprocessor_cache: true
+  # 是否信任模型仓库中的自定义代码（加载 HF 配置/权重时常需要）
   trust_remote_code: true
 
 postprocess:
+  # 若模型输出含结束标记 <｜end▁of▁sentence｜> 则截断；否则为 true 时整页跳过（防重复垃圾输出）
   skip_repeat: true
+  # 多页合并进一个 Markdown 时，是否在页与页之间插入固定分隔串（见 pipeline.PAGE_SPLIT）
   include_page_split: false
 
 preprocess:
+  # 是否对大图做动态切块/多视图预处理（论文整页大图建议 true）
   crop_mode: true
+  # 构建每页 vLLM 输入时的线程数（CPU 并行；过大可能内存飙升，按机器核数调整）
   num_workers: 24
